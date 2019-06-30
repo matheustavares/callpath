@@ -1,0 +1,157 @@
+#!/usr/bin/env ruby
+require 'open3'
+require 'tempfile'
+require 'optparse'
+
+PROG_NAME = "cpath"
+DOT_COMMAND = "dot -Tpng -o paths.png"
+FUNC_SEP = " > "
+GDB_SCRIPT =
+"commands
+silent
+where
+continue
+end
+set pagination off
+run %s %s
+quit
+"
+
+$verbose = true
+
+def parse_gdb_output output
+  paths = {}
+  output.split("#0").each { |buf|
+    match_func_of_interest = buf.scan(/ +(\w+) \(/)
+    unless match_func_of_interest.empty?
+      func_of_interest = match_func_of_interest[0][0]
+      path = ""
+      buf.scan(/#[0-9]+ +0x.+ in (\w+) \(/).reverse_each { |func|
+        path += func[0] + FUNC_SEP
+      }
+      path += func_of_interest
+      if paths.has_key? path
+        paths[path] += 1
+      else
+        paths[path] = 1
+      end
+    end
+  }
+  return paths
+end
+
+def print_paths paths
+  paths.sort.to_h.each { |k, v|
+    puts "#{k} (#{v})"
+  }
+end
+
+def plot_paths paths
+  Open3.popen3(DOT_COMMAND) do |stdin|
+    stdin.puts "digraph {"
+    paths.each { |k, v|
+      k.split(FUNC_SEP).each_cons(2) { |a, b|
+        stdin.puts "  #{a} -> #{b};"
+      }
+    }
+    stdin.puts "}"
+    stdin.close
+  end
+rescue Errno::ENOENT => e
+  Kernel.abort "Failed to run dot: #{e.message}"
+end
+
+def run_gdb command, args, breakpoints, redirect_name
+  redirect = redirect_name ? ">#{redirect_name}" : ""
+  f = Tempfile.new("gdb_script")
+  f << "file #{command}\n"
+  breakpoints.each {|bp|
+    f << "break #{bp}\n"
+  }
+  f << GDB_SCRIPT % [args, redirect]
+  f.close
+  gdb_out = `gdb --command=#{f.path} -batch`
+  f.unlink
+  return gdb_out
+rescue Errno::ENOENT => e
+  Kernel.abort "Failed to run gdb: #{e.message}"
+end
+
+def parse_args(args)
+  opts = {breaks: nil, command: nil, args: nil, redirect: false, graph: false,
+          print: true}
+  parser = OptionParser.new
+  parser.banner = "Usage: #{PROG_NAME} [<options>]\n" +
+                  "       --break func1[,func2,...]\n" +
+                  "       --run '<command> [args]'"
+  parser.separator ""
+  parser.separator "Where:"
+  parser.on("-b", "--break func1,func2,...", Array, "List of breakpoints") do |list|
+    opts[:breaks] = list
+  end
+  parser.on("-r", "--run COMMAND", String, "Run COMMAND with specied args") do |c|
+    command_arr = c.split(" ")
+    opts[:command] = command_arr[0]
+    command_args = command_arr[1..]
+    opts[:args] = command_args.nil? ? "" : command_args.join(" ")
+  end
+  parser.separator ""
+  parser.separator "And the additional options are:"
+  parser.on("-v", "--[no-]verbose", "Print progress messages (default)") do |v|
+    $verbose = v
+  end
+  parser.on("-p", "--[no-]print", "Print list of paths found at stdout (default)") do |p|
+    opts[:print] = p
+  end
+  parser.on("-g", "--[no-]graph", "Generate graph image at 'paths.png'") do |g|
+    opts[:graph] = g
+  end
+  parser.on("-eFILENAME", "--redirect=FILENAME", "Redirect your command's output") do |f|
+    opts[:redirect] = f
+  end
+  parser.on_tail("-h", "--help", "Show this message") do
+    puts parser
+    exit
+  end
+  parser.parse! args
+  if opts[:breaks].nil? or opts[:command].nil?
+    puts "Wrong use. You must use --break and --run.\n\n"
+    puts parser
+    exit
+  end
+  return opts
+end
+
+def vputs st
+  if $verbose
+    puts st
+    STDOUT.flush
+  end
+end
+
+def vprint st
+  if $verbose
+    print st
+    STDOUT.flush
+  end
+end
+
+def main opts
+  vprint "Running gdb... "
+  out = run_gdb opts[:command], opts[:args], opts[:breaks], opts[:redirect]
+  vputs "done."
+  vprint "Parsing output... "
+  paths = parse_gdb_output out
+  vputs "done."
+  if opts[:graph]
+    vprint "Invoking dot... "
+    plot_paths paths
+    puts "done."
+  end
+  if opts[:print]
+    vputs "========\n\n"
+    print_paths paths
+  end
+end
+
+main(parse_args ARGV)
