@@ -62,7 +62,7 @@ rescue Errno::ENOENT => e
 end
 
 def run_gdb command, args, breakpoints, redirect_name
-  redirect = redirect_name ? ">#{redirect_name}" : ""
+  redirect = redirect_name ? ">#{redirect_name}" : ">/dev/null"
   f = Tempfile.new("gdb_script")
   f << "file #{command}\n"
   breakpoints.each {|bp|
