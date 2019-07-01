@@ -137,19 +137,18 @@ def vprint st
 end
 
 def main opts
-  vprint "Running gdb... "
+  vprint "+ Running gdb... "
   out = run_gdb opts[:command], opts[:args], opts[:breaks], opts[:redirect]
   vputs "done."
-  vprint "Parsing output... "
+  vprint "+ Parsing output... "
   paths = parse_gdb_output out
   vputs "done."
   if opts[:graph]
-    vprint "Invoking dot... "
+    vprint "+ Invoking dot... "
     plot_paths paths
     puts "done."
   end
   if opts[:print]
-    vputs "========\n\n"
     print_paths paths
   end
 end
