@@ -11,7 +11,7 @@ Certify that you have all the following tools installed and acessible at your
 `$PATH`:
 
   - gdb
-  - dot
+  - dot (usually from the `graphviz` package)
   - ruby
 
 Then, just place `cpath` somewhere covered by your `$PATH`. You may also need
