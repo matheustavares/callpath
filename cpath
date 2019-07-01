@@ -143,6 +143,10 @@ def main opts
   vprint "+ Parsing output... "
   paths = parse_gdb_output out
   vputs "done."
+  if paths.empty?
+    puts "No paths found"
+    exit
+  end
   if opts[:graph]
     vprint "+ Invoking dot... "
     plot_paths paths
