@@ -92,7 +92,7 @@ def parse_args(args)
   parser.on("-r", "--run COMMAND", String, "Run COMMAND with specied args") do |c|
     command_arr = c.split(" ")
     opts[:command] = command_arr[0]
-    command_args = command_arr[1..]
+    command_args = command_arr[1...command_arr.size]
     opts[:args] = command_args.nil? ? "" : command_args.join(" ")
   end
   parser.separator ""
