@@ -1,9 +1,14 @@
 # CallPath (or `cpath`)
 
-CallPath lets you see all the paths your code take until a specified function.
-It does that running your code through `gdb`, parsing the output and feeding it
-to `dot`. It was design to work with C code but should work with any language
-supported by `gdb`.
+CallPath lets you see all the paths your code take until a specified function,
+in a particular execution.  It does that running your code through `gdb`,
+parsing the output and feeding it to `dot`. It was design to work with C code
+but should work with any language supported by `gdb`.
+
+**Note:** If you want to see all possible paths, not only the ones found on a
+single execution, use
+[gcc-callgraph-plugin](https://github.com/matheustavares/gcc-callgraph-plugin),
+which performs a static analysis.
 
 ## Dependencies and Installation
 
