@@ -19,8 +19,8 @@ quit
 
 $verbose = true
 
-def parse_gdb_output output
-  paths = {}
+def parse_gdb_output output, aggregate
+  paths = aggregate ? {} : []
   output.split("#0").each { |buf|
     match_func_of_interest = buf.scan(/^ +(\w+) \(/)
     unless match_func_of_interest.empty?
@@ -30,20 +30,30 @@ def parse_gdb_output output
         path += func[0] + FUNC_SEP
       }
       path += func_of_interest
-      if paths.has_key? path
-        paths[path] += 1
+      if aggregate
+        if paths.has_key? path
+          paths[path] += 1
+        else
+          paths[path] = 1
+        end
       else
-        paths[path] = 1
+        paths << path
       end
     end
   }
   return paths
 end
 
-def print_paths paths
-  paths.sort.to_h.each { |k, v|
-    puts "#{k} (#{v})"
-  }
+def print_paths paths, aggregate
+  if aggregate
+    paths.sort.to_h.each { |k, v|
+      puts "#{k} (#{v})"
+    }
+  else
+    paths.each { |p|
+      puts "#{p}"
+    }
+  end
 end
 
 def plot_paths paths
@@ -80,7 +90,7 @@ end
 
 def parse_args(args)
   opts = {breaks: nil, command: nil, args: nil, redirect: false, graph: false,
-          print: true}
+          print: true, aggregate: true}
   parser = OptionParser.new
   parser.banner = "Usage: #{PROG_NAME} [<options>]\n" +
                   "       --break func1[,func2,...]\n" +
@@ -110,6 +120,9 @@ def parse_args(args)
   parser.on("-eFILENAME", "--redirect=FILENAME", "Redirect your command's output") do |f|
     opts[:redirect] = f
   end
+  parser.on("-a", "--[no-]aggregate", "Aggregate found paths (default) or print in found order.") do |v|
+    opts[:aggregate] = v
+  end
   parser.on_tail("-h", "--help", "Show this message") do
     puts parser
     exit
@@ -117,6 +130,11 @@ def parse_args(args)
   parser.parse! args
   if opts[:breaks].nil? or opts[:command].nil?
     puts "Wrong use. You must use --break and --run.\n\n"
+    puts parser
+    exit
+  end
+  if not opts[:aggregate] and opts[:graph]
+    puts "Error: --graph can only be used with --aggregate.\n\n"
     puts parser
     exit
   end
@@ -142,7 +160,7 @@ def main opts
   out = run_gdb opts[:command], opts[:args], opts[:breaks], opts[:redirect]
   vputs "done."
   vprint "+ Parsing output... "
-  paths = parse_gdb_output out
+  paths = parse_gdb_output out, opts[:aggregate]
   vputs "done."
   if paths.empty?
     puts "No paths found"
@@ -154,7 +172,7 @@ def main opts
     puts "done."
   end
   if opts[:print]
-    print_paths paths
+    print_paths paths, opts[:aggregate]
   end
 end
 
