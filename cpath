@@ -7,7 +7,7 @@ PROG_NAME = "cpath"
 DOT_COMMAND = "dot -Tpng -o paths.png"
 FUNC_SEP = " > "
 GDB_SCRIPT =
-"commands
+"commands %s
 silent
 where
 continue
@@ -68,7 +68,8 @@ def run_gdb command, args, breakpoints, redirect_name
   breakpoints.each {|bp|
     f << "break #{bp}\n"
   }
-  f << GDB_SCRIPT % [args, redirect]
+  bp_seq = (1..breakpoints.size()).to_a.join(" ")
+  f << GDB_SCRIPT % [bp_seq, args, redirect]
   f.close
   gdb_out = `gdb --command=#{f.path} -batch`
   f.unlink
